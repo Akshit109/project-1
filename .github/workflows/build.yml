@@ -59,7 +59,8 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Android-APK
-          path: bin/*.apk
-          if-no-files-found: error  # Fails if no APK is found
+            name: Android-APK
+            path: .buildozer/android/platform/build-armeabi-v7a/dists/*/bin/*.apk
+
+            if-no-files-found: error  # Fails if no APK is found
 
