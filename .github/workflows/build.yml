@@ -40,6 +40,11 @@ jobs:
               gstreamer1.0-plugins-ugly gstreamer1.0-libav \
               gstreamer1.0-tools
 
+      - name: Install Buildozer and Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install --user --upgrade buildozer cython virtualenv
+
       - name: Install Android Command-line Tools
         run: |
           sudo mkdir -p /usr/local/android-sdk/cmdline-tools
@@ -53,18 +58,21 @@ jobs:
           echo "ANDROID_HOME=/usr/local/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=/usr/local/android-sdk" >> $GITHUB_ENV
           echo "PATH=$PATH:/usr/local/android-sdk/cmdline-tools/latest/bin:/usr/local/android-sdk/platform-tools" >> $GITHUB_ENV
-      - name: Check Buildozer Logs
-        run: cat .buildozer/android/platform/build-armeabi-v7a/dists/*/build.log || true
-      - name: Debug Buildozer Output
-        run: ls -R .buildozer/android/platform/build-armeabi-v7a/dists/
 
+      - name: Build APK with Buildozer
+        run: |
+          buildozer -v android debug | tee buildozer.log
+
+      - name: Check Buildozer Logs (if the build fails)
+        if: failure()
+        run: cat buildozer.log
+
+      - name: Debug Buildozer Output
+        run: ls -R .buildozer/android/platform/build || true
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-            name: Android-APK
-            path: .buildozer/android/platform/build/debug/bin/*.apk
-
-
-            if-no-files-found: error  # Fails if no APK is found
-
+          name: Android-APK
+          path: .buildozer/android/platform/build/*/dists/*/bin/*.apk
+          if-no-files-found: error  # Fails if no APK is found
