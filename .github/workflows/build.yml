@@ -1,3 +1,8 @@
+-name: Install aidl and Dependencies
+  run: |
+    sudo apt update
+    sudo apt install -y aidl
+
 name: CI
 on:
   push:
