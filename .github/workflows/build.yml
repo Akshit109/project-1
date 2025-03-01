@@ -40,11 +40,6 @@ jobs:
               gstreamer1.0-plugins-ugly gstreamer1.0-libav \
               gstreamer1.0-tools
 
-      - name: Install Buildozer and Dependencies
-        run: |
-          pip install --upgrade pip
-          pip install --user --upgrade buildozer cython virtualenv
-
       - name: Install Android Command-line Tools
         run: |
           sudo mkdir -p /usr/local/android-sdk/cmdline-tools
@@ -59,20 +54,29 @@ jobs:
           echo "ANDROID_SDK_ROOT=/usr/local/android-sdk" >> $GITHUB_ENV
           echo "PATH=$PATH:/usr/local/android-sdk/cmdline-tools/latest/bin:/usr/local/android-sdk/platform-tools" >> $GITHUB_ENV
 
+      # Debugging Step: Check if Buildozer Directories Exist
+      - name: Check Buildozer Directory Structure
+        run: ls -R .buildozer || echo "No .buildozer directory found"
+
+      # Run Buildozer with Debug Mode and Save Logs
       - name: Build APK with Buildozer
         run: |
+          buildozer android clean  # Clean old builds
           buildozer -v android debug | tee buildozer.log
 
-      - name: Check Buildozer Logs (if the build fails)
+      # Debugging Step: Print Buildozer Logs if Build Fails
+      - name: Print Buildozer Logs on Failure
         if: failure()
         run: cat buildozer.log
 
-      - name: Debug Buildozer Output
-        run: ls -R .buildozer/android/platform/build || true
+      # Debugging Step: Check APK Existence
+      - name: Check APK Existence
+        run: ls -R .buildozer/bin/ || echo "No APK found"
 
+      # Upload the APK if it exists
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Android-APK
-          path: .buildozer/android/platform/build/*/dists/*/bin/*.apk
-          if-no-files-found: error  # Fails if no APK is found
+          path: .buildozer/bin/*.apk  # Correct path for APK
+          if-no-files-found: error  # Fail if APK is missing
