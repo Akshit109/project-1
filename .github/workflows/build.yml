@@ -1,6 +1,10 @@
-name: CI
+name: Build Python Android App
+
 on:
   push:
+    branches:
+      - main
+  pull_request:
     branches:
       - main
 
@@ -9,74 +13,69 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-      - name: Checkout Repository
+      - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Get Date
-        id: get-date
-        run: echo "date=$(date -u +'%Y%m%d')" >> $GITHUB_ENV
-        shell: bash
+      - name: 🕒 Set Build Date
+        run: echo "DATE=$(date -u +'%Y%m%d')" >> $GITHUB_ENV
 
-      - name: Cache Buildozer Global Directory
+      - name: ⚡ Cache Buildozer Global Directory
         uses: actions/cache@v4
         with:
-          path: .buildozer_global
-          key: buildozer-global-${{ hashFiles('buildozer.spec') }}
+          path: ~/.buildozer
+          key: buildozer-global-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
 
-      - name: Cache Buildozer Directory
+      - name: ⚡ Cache .buildozer Directory
         uses: actions/cache@v4
         with:
           path: .buildozer
-          key: buildozer-${{ runner.os }}-${{ env.date }}-${{ hashFiles('buildozer.spec') }}
+          key: buildozer-${{ runner.os }}-${{ env.DATE }}-${{ hashFiles('buildozer.spec') }}
 
-      - name: Install Dependencies
+      - name: 🛠️ Install Dependencies
         run: |
           sudo apt update
-          sudo apt install -y openjdk-17-jdk python3-pip zip unzip \
+          sudo apt install -y openjdk-17-jdk python3 python3-pip zip unzip \
               zlib1g-dev libncurses5 libffi-dev libssl-dev \
               libjpeg-dev libpng-dev libfreetype6-dev \
               libgstreamer1.0-dev gstreamer1.0-plugins-base \
               gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
               gstreamer1.0-plugins-ugly gstreamer1.0-libav \
-              gstreamer1.0-tools
+              gstreamer1.0-tools git
 
-      - name: Install Android Command-line Tools
+      - name: 📥 Install Buildozer & Dependencies
+        run: |
+          pip3 install --upgrade pip
+          pip3 install --user buildozer cython virtualenv
+          echo "PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+
+      - name: 📥 Install Android SDK & NDK
         run: |
           sudo mkdir -p /usr/local/android-sdk/cmdline-tools
-          sudo curl -o commandlinetools-linux.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          sudo unzip -q commandlinetools-linux.zip -d /usr/local/android-sdk/cmdline-tools
+          sudo curl -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          sudo unzip -q commandlinetools.zip -d /usr/local/android-sdk/cmdline-tools
           sudo mv /usr/local/android-sdk/cmdline-tools/cmdline-tools /usr/local/android-sdk/cmdline-tools/latest
-          rm commandlinetools-linux.zip
-
-      - name: Set Android Environment Variables
-        run: |
+          rm commandlinetools.zip
           echo "ANDROID_HOME=/usr/local/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=/usr/local/android-sdk" >> $GITHUB_ENV
           echo "PATH=$PATH:/usr/local/android-sdk/cmdline-tools/latest/bin:/usr/local/android-sdk/platform-tools" >> $GITHUB_ENV
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-31" "build-tools;31.0.0" "ndk;23.1.7779620"
 
-      # Debugging Step: Check if Buildozer Directories Exist
-      - name: Check Buildozer Directory Structure
-        run: ls -R .buildozer || echo "No .buildozer directory found"
-
-      # Run Buildozer with Debug Mode and Save Logs
-      - name: Build APK with Buildozer
+      - name: 🛠️ Build APK
         run: |
-          buildozer android clean  # Clean old builds
+          buildozer android clean
           buildozer -v android debug | tee buildozer.log
 
-      # Debugging Step: Print Buildozer Logs if Build Fails
-      - name: Print Buildozer Logs on Failure
+      - name: 📜 Debug Logs (If Build Fails)
         if: failure()
         run: cat buildozer.log
 
-      # Debugging Step: Check APK Existence
-      - name: Check APK Existence
-        run: ls -R .buildozer/bin/ || echo "No APK found"
+      - name: 🔍 Check APK Output Directory
+        run: ls -R .buildozer/android/platform/build/ || echo "APK directory not found"
 
-      # Upload the APK if it exists
-      - name: Upload APK
+      - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Android-APK
-          path: .buildozer/bin/*.apk  # Correct path for APK
-          if-no-files-found: error  # Fail if APK is missing
+          path: .buildozer/android/platform/build/**/*.apk
+          if-no-files-found: error
