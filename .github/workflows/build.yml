@@ -40,17 +40,25 @@ jobs:
               gstreamer1.0-plugins-ugly gstreamer1.0-libav \
               gstreamer1.0-tools
 
-      - name: Install Android SDK and AIDL
+      - name: Install Android Command-line Tools
         run: |
-          sudo apt install -y android-sdk adb
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-31" "build-tools;36.0.0-rc5"
+          sudo mkdir -p /usr/local/android-sdk/cmdline-tools
+          sudo curl -o commandlinetools-linux.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          sudo unzip -q commandlinetools-linux.zip -d /usr/local/android-sdk/cmdline-tools
+          sudo mv /usr/local/android-sdk/cmdline-tools/cmdline-tools /usr/local/android-sdk/cmdline-tools/latest
+          rm commandlinetools-linux.zip
 
       - name: Set Android Environment Variables
         run: |
-          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+          echo "ANDROID_HOME=/usr/local/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=/usr/local/android-sdk" >> $GITHUB_ENV
+          echo "/usr/local/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "/usr/local/android-sdk/platform-tools" >> $GITHUB_PATH
+
+      - name: Install Android SDK Components
+        run: |
+          sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
+          sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-31" "build-tools;36.0.0-rc5"
 
       - name: Install Buildozer Manually
         run: |
